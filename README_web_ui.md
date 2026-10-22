@@ -11,6 +11,7 @@
 ```
 GITHUB_TOKEN = "github_pat_..."
 BRANCH = "main"
+APP_PASSWORD = "길고-추측-어려운-비밀번호"
 [REPOS]
 "한국어" = "gonmau/한국어저장소이름"
 "English" = "gonmau/영어저장소이름"
@@ -18,4 +19,4 @@ BRANCH = "main"
 "한국어" = "culture-shorts-pipeline.yml"
 "English" = "korea-shorts-pipeline.yml"
 ```
-5. 앱을 비공개로 하고(본인 계정만), 아이패드 사파리에서 열어 홈 화면에 추가
+5. 무료 플랜은 '비공개 앱'이 1개뿐이라, 앱은 공개로 두고 APP_PASSWORD 로 잠급니다 (저장소는 Private 가능). 아이패드 사파리에서 열어 홈 화면에 추가

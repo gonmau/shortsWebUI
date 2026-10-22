@@ -31,6 +31,20 @@ if not TOKEN or not REPOS:
     st.stop()
 
 
+PW = secret("APP_PASSWORD")
+if PW and st.session_state.get("authed") != True:
+    st.title("🎬 쇼츠 관리")
+    pw = st.text_input("비밀번호", type="password")
+    if pw and pw == PW:
+        st.session_state["authed"] = True
+        st.rerun()
+    elif pw:
+        st.error("비밀번호가 틀립니다.")
+    st.stop()
+if not PW:
+    st.warning("APP_PASSWORD 가 없습니다. 앱 URL을 아는 누구나 사용할 수 있으니 Secrets에 꼭 넣으세요.")
+
+
 def hdr():
     return {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
 
