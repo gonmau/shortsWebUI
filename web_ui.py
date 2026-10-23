@@ -92,10 +92,20 @@ def get_db(repo, force=False):
     return st.session_state["db_cache"][1]
 
 
+def up_state(f):
+    if f.get("youtube_id"):
+        pv = {"public": "공개", "private": "비공개", "unlisted": "일부공개"}.get(f.get("youtube_privacy"), "")
+        return f"업로드({pv})" if pv else "업로드"
+    if f.get("video_path_v6") or f.get("status_v6") == "video_done":
+        return "영상완료(미업로드)"
+    return ""
+
+
 def lab(db, i):
     f = db[i]
     t = " ".join(x for x in (f.get("title_line1"), f.get("title_line2")) if x) or str(f.get("topic") or "")
-    return f"{i} · {f.get('label') or f.get('country', '')} · {' '.join(t.split())[:30]}"
+    u = up_state(f)
+    return f"{i} · {f.get('label') or f.get('country', '')} · {' '.join(t.split())[:30]}" + (f" · {u}" if u else "")
 
 
 def set_status(item, s, reason=""):
@@ -123,6 +133,9 @@ except Exception as e:
 
 counts = {s: sum(1 for f in db if f.get("status") == s) for s in STATUSES}
 st.write(" · ".join(f"{STATUS_KO[s]} {n}" for s, n in counts.items()) + f" · 전체 {len(db)}")
+_up = sum(1 for f in db if f.get("youtube_id"))
+_vd = sum(1 for f in db if not f.get("youtube_id") and (f.get("video_path_v6") or f.get("status_v6") == "video_done"))
+st.write(f"업로드됨 {_up} · 영상완료/미업로드 {_vd}")
 
 tab_edit, tab_state, tab_run = st.tabs(["📝 대본 보기/수정", "🗂 상태 변경", "▶ 실행(Actions)"])
 
@@ -168,6 +181,33 @@ with tab_state:
         if apply_changes(repo, ch, f"web: {len(picked)}개 소재 → {target}"):
             st.success(f"{len(picked)}개를 '{STATUS_KO[target]}'로 바꿨습니다.")
             get_db(repo, force=True)
+
+    st.divider()
+    st.subheader("📌 업로드 기록 (영상 주소)")
+    import re as _re
+    import datetime as _dt
+    pend = sorted([i for i, f in enumerate(db) if not f.get("youtube_id") and (f.get("video_path_v6") or f.get("status_v6") == "video_done")], reverse=True)
+    if not pend:
+        st.caption("영상완료·미업로드 소재가 없습니다.")
+    else:
+        pk = st.selectbox("소재 (영상완료·미업로드)", pend, format_func=lambda i: lab(db, i), key="urec_pick")
+        url = st.text_input("유튜브 영상 주소", key="urec_url")
+        pvk = st.radio("공개 상태", ["비공개", "공개", "일부공개"], horizontal=True, key="urec_priv")
+        if st.button("업로드 기록 저장 (GitHub에 커밋)", disabled=not url.strip(), key="urec_go"):
+            m = _re.search(r"(?:youtu\.be/|youtube\.com/(?:shorts/|embed/|live/)|[?&]v=)([\w-]{11})", url) or _re.fullmatch(r"([\w-]{11})", url.strip())
+            if not m:
+                st.error("영상 주소에서 ID를 찾지 못했습니다")
+            elif any(f.get("youtube_id") == m.group(1) for f in db):
+                st.error("이 영상은 이미 다른 소재에 연결돼 있습니다")
+            else:
+                vid = m.group(1)
+                pv = {"비공개": "private", "공개": "public", "일부공개": "unlisted"}[pvk]
+                today = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=9))).strftime("%Y-%m-%d")
+
+                def fn_u(it, vid=vid, pv=pv, today=today):
+                    it["youtube_id"], it["youtube_privacy"], it["uploaded_at"] = vid, pv, today
+                if apply_changes(repo, [(pk, db[pk].get("country"), fn_u)], f"web: {pk}번 업로드 기록"):
+                    st.success(f"{pk}번 소재에 {vid} 기록"); get_db(repo, force=True)
 
 with tab_run:
     wf = secret("WORKFLOWS", {}) or {}
